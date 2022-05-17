@@ -1,3 +1,4 @@
+#include <windows.h>
 #include <stdio.h>
 #include <atomic>
 
@@ -66,12 +67,41 @@ static void test_func()
 
 context_t ctx;
 
+
+
+
+static void __stdcall fiberMain(void* fiber)
+{
+	test_func();
+}
+
+
+void fiber_test_main()
+{
+	void* main_fiber = ::ConvertThreadToFiberEx(nullptr, FIBER_FLAG_FLOAT_SWITCH);
+	void* fiber_func = ::CreateFiber(16384, fiberMain, nullptr);
+
+	pfn_function fn = test_func;
+	fn();
+
+	::SwitchToFiber(fiber_func);
+
+
+}
+
 int main()
 {
+#if 0
+	fiber_test_main();
+	printf("done\n");
+	return 3;
+#endif
+
 	pfn_function fn = test_func;
 	fn();
 
 	void* stack = malloc(512);
+	memset(stack, 0x33, 512);
 	void* stack_top = reinterpret_cast<char*>(stack) + 512;
 
 	context_t ctx_func;
