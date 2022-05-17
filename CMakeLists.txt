@@ -57,9 +57,8 @@ elseif (WIN32)
     set(ASM_EXT "ms_pe_masm.asm")
 endif()
 
-set(ASM_SOURCES "asm/save_${CPU_ARCH}_${ASM_EXT}"
-                "asm/make_${CPU_ARCH}_${ASM_EXT}"
-                "asm/restore_${CPU_ARCH}_${ASM_EXT}")
+set(ASM_SOURCES "asm/create_${CPU_ARCH}_${ASM_EXT}"
+                "asm/switch_${CPU_ARCH}_${ASM_EXT}")
 
 set (APP_NAME ${PROJ_NAME})
 add_executable(${APP_NAME} ${CPP_SOURCES} ${ASM_SOURCES})
