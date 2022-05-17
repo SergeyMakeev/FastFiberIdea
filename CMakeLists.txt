@@ -58,6 +58,7 @@ elseif (WIN32)
 endif()
 
 set(ASM_SOURCES "asm/save_${CPU_ARCH}_${ASM_EXT}"
+                "asm/make_${CPU_ARCH}_${ASM_EXT}"
                 "asm/restore_${CPU_ARCH}_${ASM_EXT}")
 
 set (APP_NAME ${PROJ_NAME})
