@@ -15,7 +15,7 @@ API is super simple
 1 Creates a new context/fiber (you don't need to call ConvertThreadToFiber or anything like that)  
  `create(context_t* result, fiber_function, stack_top_ptr, stack_base_ptr);`
 
-2 Automatically saves the current execution context to *from* and switches to the *to*  
+2 Automatically saves the current execution context to `from` and switches to the `to`  
 `switch_to(context_t* from, context_t* to);`
 
 3 Return the current context environment including a pointer to the current context and a pointer to the previous context to be able to switch back  
