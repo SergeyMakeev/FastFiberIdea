@@ -22,4 +22,4 @@ API is super simple
 `context_env_t get_environment();`
   
   
-P.S. sizeof(context_t) = 104 bytes (note! it does not include 10 nonvolatile xmm registers XMM6:XMM15)
+P.S. `sizeof(context_t) = 104 bytes` (note! it does not include 10 nonvolatile xmm registers `XMM6:XMM15`)
