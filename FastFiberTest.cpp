@@ -1,3 +1,22 @@
+/*
+
+
+API is super simple
+
+Creates a new context/fiber (you don't need to call ConvertThreadToFiber or anything like that)
+1. create(context_t* result, fiber_function, stack_top_ptr, stack_base_ptr);
+
+Automatically saves the current execution context to *from* and switches to the *to*
+2. switch_to(context_t* from, context_t* to);
+
+Return the current context environment including a pointer to the current context and a pointer to the previous context to be able to switch back
+3. context_env_t get_environment();
+
+
+P.S. sizeof(context_t) = 96 (note! it does not include 10 nonvolatile xmm registers XMM6:XMM15)
+
+*/
+
 #include <windows.h>
 #include <stdio.h>
 #include <atomic>
@@ -45,12 +64,18 @@ extern "C" {
 		//xmm6 - xmm15 todo? (these are nonvolatile too)
 	};
 
-	// TODO: think about parent context!!!! how do I implement yield() function?
+	// context environment
+	struct context_env_t
+	{
+		context_t* _from;
+		context_t* _to;
+	};
+
 
 	typedef void (*pfn_function)();
 
 	extern void create_context(context_t* ctx, pfn_function func, void* sp);
-	extern void switch_context(context_t* from, context_t* to);
+	extern void switch_context(context_t* from, context_t* to, context_env_t* env);
 
 #ifdef __cplusplus
 }
@@ -64,33 +89,41 @@ extern "C" {
 // r9     - volatile (fourth integer arg)
 // r10:11 - volatile
 
-
+// todo: use line to generate unique names
 #define switch_to(from ,to) \
-	_ReadWriteBarrier(); \
-	switch_context((from), (to)); \
-
+	do { \
+		context_env_t env; \
+		env._from = (from); \
+		env._to = (to); \
+		_ReadWriteBarrier(); \
+		switch_context((from), (to), &env); \
+	} while(0) \
 
 // note: __debugbreak() below - if we trying to return from "main fiber" function there is no return address!!!!
 // todo: replace _ReadWriteBarrier() to _mm_mfence() / __sync_synchronize() ?
+// todo: use line to generate unique names
 #define create(ctx, func, stack_top, stack_base) \
-	auto fiberMainFunc = []() { \
-		func(); \
-		__debugbreak(); \
-	}; \
-	_ReadWriteBarrier(); \
-	create_context((ctx), (fiberMainFunc), (stack_base)); \
-	(ctx)->stack_base = (uintptr_t)(stack_base); \
-	(ctx)->stack_limit = (uintptr_t)(stack_top); \
-
-
-context_t global_ctx;
-context_t ctx_func;
-
+	do { \
+		auto fiberMainFunc = []() { \
+			func(); \
+			__debugbreak(); \
+		}; \
+		_ReadWriteBarrier(); \
+		create_context((ctx), (fiberMainFunc), (stack_base)); \
+		(ctx)->stack_base = (uintptr_t)(stack_base); \
+		(ctx)->stack_limit = (uintptr_t)(stack_top); \
+	} while(0) \
 
 
 #define ReadTeb(offset) __readgsqword(offset);
 #define WriteTeb(offset, v) __writegsqword(offset, v)
 
+
+inline context_env_t* get_environment()
+{
+	context_env_t* e = (context_env_t*)ReadTeb(FIELD_OFFSET(NT_TIB, ArbitraryUserPointer));
+	return e;
+}
 
 void offset_test()
 {
@@ -104,62 +137,68 @@ void offset_test()
 }
 
 
-
-
-
+// this function will be called from two contexts (global_ctx and ctx_func)
 static void test_func()
 {
-	//TODO: get parent context from TLB!!!
+	int a = rand();
+	printf("That's my func! [stack:%p][%d]\n", &a, a);
 
-	void* stackTop = (void*)ReadTeb(FIELD_OFFSET(NT_TIB, StackBase));
-	void* stackBottom = (void*)ReadTeb(FIELD_OFFSET(NT_TIB, StackLimit));
+	// get current context environment
+	context_env_t* e = get_environment();
 
-	//int a = rand();
-	int a = 3;
-	printf("That's my func! [%p][%d]\n", &a, a);
-	switch_to(&ctx_func, &global_ctx);
+	if (e)
+	{
+		//switch back to calling fiber
+		switch_to(e->_to, e->_from);
+	}
 }
-
-
 
 
 int main()
 {
-
 	SYSTEM_INFO systemInfo;
 	GetSystemInfo(&systemInfo);
 	int pageSize = (int)systemInfo.dwPageSize;
 
 	// see _XCPT_GUARD_PAGE_VIOLATION and _XCPT_UNABLE_TO_GROW_STACK
-	int stackSize = pageSize * 2; // min 2 pages because of stack probing! might need additional guard page to handle "stack overflow"
+	int stackSize = pageSize * 4; // min 2 pages because of stack probing! might need additional guard page to handle "stack overflow"
 	//stackSize = 8192 bytes
 	void* stack_top = VirtualAlloc(NULL, stackSize, MEM_COMMIT, PAGE_READWRITE);
 	assert(stack_top);
 
-/*
+	printf("custom stack [%p .. %p]\n", stack_top, reinterpret_cast<char*>(stack_top) + stackSize);
+
+
 	DWORD oldProtect = 0;
 	BOOL res = VirtualProtect(stack_top, pageSize, PAGE_NOACCESS, &oldProtect);
 	assert(res);
-*/
-	void* stack_base = reinterpret_cast<char*>(stack_top) + stackSize;
+	void* stack_base = reinterpret_cast<char*>(stack_top) + stackSize - pageSize;
 
-	//auto func = []() {exit(0); };
+	res = VirtualProtect(stack_base, pageSize, PAGE_NOACCESS, &oldProtect);
+	assert(res);
 
-	// todo: default context to return into? that's probably wont work?
+
+	context_t ctx_func;
 	create(&ctx_func, test_func, stack_top, stack_base);
 
-	// TODO: check stack state here!
+
+	test_func();
+
 	printf("before\n");
 
 	void* stackTop = (void*)ReadTeb(FIELD_OFFSET(NT_TIB, StackBase));
 	void* stackBottom = (void*)ReadTeb(FIELD_OFFSET(NT_TIB, StackLimit));
+	printf("thread stack [%p .. %p]\n", stackTop, stackBottom);
 
 
+	context_t global_ctx;
 	switch_to(&global_ctx, &ctx_func);
 
-	// TODO: check stack state here! (should be the same as above)
 	printf("after\n");
 
 	return 0;
 }
+
+
+
 

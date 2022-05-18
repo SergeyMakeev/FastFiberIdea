@@ -7,6 +7,7 @@ switch_context PROC FRAME
 
     ; rcx - first arg (from)
     ; rdx - second arg (to)
+    ; r8 - third arg (env)
 
     ; save current context
     ; ------------------------------------------------------------
@@ -37,8 +38,8 @@ switch_context PROC FRAME
     ; restore new context
     ; ------------------------------------------------------------
 
-    ; save previous (parent) context to NT_TIB::ArbitraryUserPointer
-    mov [r10+40], rcx      ; user pointer = FIELD_OFFSET(NT_TIB, ArbitraryUserPointer)
+    ; save context_env_t to NT_TIB::ArbitraryUserPointer
+    mov [r10+40], r8      ; user pointer = FIELD_OFFSET(NT_TIB, ArbitraryUserPointer)
 
     mov rax, [rdx+80]      ; update TIB stack base
     mov [r10+8], rax
