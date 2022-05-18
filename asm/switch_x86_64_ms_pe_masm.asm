@@ -35,17 +35,25 @@ switch_context PROC FRAME
     mov  rax,  [r10+16]   ; stack limit = FIELD_OFFSET(NT_TIB, StackLimit)
     mov [rcx+88], rax      
 
+    mov  rax,  [r10+01478h]   ; TIB deallocation stack
+    mov [rcx+96], rax      
+
+
     ; restore new context
     ; ------------------------------------------------------------
 
     ; save context_env_t to NT_TIB::ArbitraryUserPointer
     mov [r10+40], r8      ; user pointer = FIELD_OFFSET(NT_TIB, ArbitraryUserPointer)
 
-    mov rax, [rdx+80]      ; update TIB stack base
+    mov rax, [rdx+80]      ; restore TIB stack base
     mov [r10+8], rax
 
-    mov rax, [rdx+88]      ; update TIB stack limit
+    mov rax, [rdx+88]      ; restore TIB stack limit
     mov [r10+16], rax
+
+    mov rax, [rdx+96]      ; restore TIB deallocation stack
+    mov [r10+01478h], rax
+
 
     mov rsp, [rdx+64]      ; update stack pointer
 
