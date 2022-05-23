@@ -32,6 +32,7 @@ P.S. sizeof(context_t) = 104 bytes (note! it does not include 10 nonvolatile xmm
 // https://en.wikipedia.org/wiki/Win32_Thread_Information_Block
 // https://www.wikiwand.com/en/Win32_Thread_Information_Block
 // https://devblogs.microsoft.com/oldnewthing/20040114-00/?p=41053
+// https://graphitemaster.github.io/fibers/
 /*
 Stack information stored in the TIB
 A process should be free to move the stack of its threads as long as it updates the information stored in the TIB accordingly.
